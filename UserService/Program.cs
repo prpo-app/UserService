@@ -1,15 +1,13 @@
-using Microsoft.Extensions.Configuration;
-using UserService.Models;
-//using Microsoft.Extensions.DependencyInjection;
-using Microsoft.EntityFrameworkCore;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.IdentityModel.Tokens.Jwt;
+using System.Reflection;
 using System.Security.Claims;
 using System.Text;
-
-using System.Reflection;
+using UserService.Models;
 
 var config = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
@@ -18,15 +16,24 @@ var config = new ConfigurationBuilder()
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Services.AddHealthChecks()
+    .AddNpgSql(builder.Configuration.GetConnectionString("Default"), name: "usercheck");
+
 builder.Services.AddControllers();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen( options =>
 {
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "UserService API",
+        Version = "v1"
+    });
+
     var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
 
     options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
@@ -58,6 +65,8 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
+app.MapHealthChecks("/health");
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -68,10 +77,7 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-//app.Urls.Add("http://+:8080");
-
 //app.UseHttpsRedirection();
-//app.UseAuthorization();
 
 app.MapControllers();
 
